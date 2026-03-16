@@ -1,0 +1,15 @@
+@* Dropzone component for PDF file uploads *@
+
+<div class="dropzone" @ondragover:preventDefault @ondrop:preventDefault>
+    <InputFile OnChange="OnFilesSelected" multiple accept=".pdf" />
+    <p>Drag &amp; drop PDF files here or click to browse</p>
+</div>
+
+@code {
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnFilesChanged { get; set; }
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        await OnFilesChanged.InvokeAsync(e);
+    }
+}

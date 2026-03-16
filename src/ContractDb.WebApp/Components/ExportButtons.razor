@@ -1,0 +1,11 @@
+@* Export buttons for downloading results *@
+
+<div class="export-buttons">
+    <button @onclick="OnExportJson">Export JSON</button>
+    <button @onclick="OnExportCsv">Export CSV</button>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnExportJson { get; set; }
+    [Parameter] public EventCallback OnExportCsv { get; set; }
+}

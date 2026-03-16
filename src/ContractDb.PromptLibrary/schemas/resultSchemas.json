@@ -1,0 +1,39 @@
+{
+  "promptResult": {
+    "type": "object",
+    "properties": {
+      "contractName": { "type": "string" },
+      "sourceFileName": { "type": "string" },
+      "clauseExcerpts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "text": { "type": "string" },
+            "score": { "type": "number" }
+          },
+          "required": ["text"]
+        }
+      },
+      "extractedValue": { "type": ["string", "null"] },
+      "conclusion": {
+        "type": "string",
+        "enum": ["Explicit Date", "Implied", "Not Found", "Ambiguous", "Yes", "No"]
+      },
+      "citations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sourceFileName": { "type": "string" },
+            "blobPath": { "type": "string" },
+            "excerpt": { "type": "string" },
+            "queryUsed": { "type": "string" }
+          },
+          "required": ["sourceFileName", "excerpt"]
+        }
+      }
+    },
+    "required": ["contractName", "sourceFileName", "clauseExcerpts", "conclusion", "citations"]
+  }
+}

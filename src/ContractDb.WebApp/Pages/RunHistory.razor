@@ -1,0 +1,83 @@
+@page "/run-history"
+@using ContractDb.Shared.Models
+@using ContractDb.WebApp.Services
+@inject RunHistoryService HistoryService
+@rendermode InteractiveServer
+
+<h2>Run History</h2>
+
+@if (_runs is null)
+{
+    <p>Loading...</p>
+}
+else if (_runs.Count == 0)
+{
+    <p>No prompt runs yet. Go to Prompt Runner to execute queries.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Run ID</th>
+                <th>Prompt</th>
+                <th>Scope</th>
+                <th>Matched</th>
+                <th>Executed At</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var run in _runs)
+            {
+                <tr @onclick="() => SelectRun(run)" style="cursor:pointer">
+                    <td style="font-size:0.85em">@run.RunId[..8]...</td>
+                    <td>@Truncate(run.PromptText, 60)</td>
+                    <td>@run.Scope</td>
+                    <td>@run.MatchedContracts / @run.TotalContracts</td>
+                    <td>@run.ExecutedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (_selectedRun is not null)
+    {
+        <h3>Run Details: @_selectedRun.RunId[..8]...</h3>
+        <p><strong>Prompt:</strong> @_selectedRun.PromptText</p>
+        <p><strong>Scope:</strong> @_selectedRun.Scope</p>
+
+        @foreach (var result in _selectedRun.Results)
+        {
+            <div class="result-card">
+                <h4>@result.ContractName</h4>
+                <p><strong>Conclusion:</strong> @result.Conclusion</p>
+                @if (result.ExtractedValue is not null)
+                {
+                    <p><strong>Value:</strong> @result.ExtractedValue</p>
+                }
+                @foreach (var excerpt in result.ClauseExcerpts)
+                {
+                    <blockquote>"@excerpt.Text"</blockquote>
+                }
+            </div>
+        }
+    }
+}
+
+@code {
+    private List<PromptRunResponse>? _runs;
+    private PromptRunResponse? _selectedRun;
+
+    protected override void OnInitialized()
+    {
+        _runs = HistoryService.GetAll();
+    }
+
+    private void SelectRun(PromptRunResponse run)
+    {
+        _selectedRun = run;
+    }
+
+    private static string Truncate(string text, int max)
+        => text.Length <= max ? text : text[..max] + "...";
+}

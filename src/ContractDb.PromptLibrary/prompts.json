@@ -1,0 +1,112 @@
+[
+  {
+    "id": "A01",
+    "name": "Contract Effective Date",
+    "category": "Dates",
+    "section": "A",
+    "promptText": "What is the effective date of this contract?",
+    "expectedResultType": "date",
+    "searchSynonyms": ["effective date", "commencement date", "start date", "agreement date", "dated as of"],
+    "priority": 1
+  },
+  {
+    "id": "A02",
+    "name": "Contract Expiration Date",
+    "category": "Dates",
+    "section": "A",
+    "promptText": "What is the expiration or termination date of this contract?",
+    "expectedResultType": "date",
+    "searchSynonyms": ["expiration date", "termination date", "end date", "expires on", "term ends"],
+    "priority": 2
+  },
+  {
+    "id": "A03",
+    "name": "Auto-Renewal Clause",
+    "category": "Renewal",
+    "section": "A",
+    "promptText": "Does this contract contain an auto-renewal or evergreen clause?",
+    "expectedResultType": "boolean",
+    "searchSynonyms": ["auto-renewal", "automatic renewal", "evergreen", "renew automatically", "successive periods"],
+    "priority": 3
+  },
+  {
+    "id": "A04",
+    "name": "Termination for Convenience",
+    "category": "Termination",
+    "section": "A",
+    "promptText": "Does this contract allow termination for convenience, and what is the notice period?",
+    "expectedResultType": "text",
+    "searchSynonyms": ["termination for convenience", "terminate without cause", "cancel at any time", "notice period", "days notice"],
+    "priority": 4
+  },
+  {
+    "id": "A05",
+    "name": "Governing Law",
+    "category": "Legal",
+    "section": "A",
+    "promptText": "What is the governing law or jurisdiction for this contract?",
+    "expectedResultType": "text",
+    "searchSynonyms": ["governing law", "jurisdiction", "laws of the state", "governed by", "venue"],
+    "priority": 5
+  },
+  {
+    "id": "B01",
+    "name": "Limitation of Liability",
+    "category": "Liability",
+    "section": "B",
+    "promptText": "What are the limitation of liability terms in this contract?",
+    "expectedResultType": "text",
+    "searchSynonyms": ["limitation of liability", "liability cap", "aggregate liability", "shall not exceed", "maximum liability"],
+    "priority": 10
+  },
+  {
+    "id": "B02",
+    "name": "Indemnification Clause",
+    "category": "Liability",
+    "section": "B",
+    "promptText": "What are the indemnification obligations in this contract?",
+    "expectedResultType": "text",
+    "searchSynonyms": ["indemnification", "indemnify", "hold harmless", "defend and indemnify", "losses and damages"],
+    "priority": 11
+  },
+  {
+    "id": "B03",
+    "name": "Confidentiality / NDA",
+    "category": "Confidentiality",
+    "section": "B",
+    "promptText": "What are the confidentiality or non-disclosure obligations?",
+    "expectedResultType": "text",
+    "searchSynonyms": ["confidentiality", "confidential information", "non-disclosure", "NDA", "proprietary information"],
+    "priority": 12
+  },
+  {
+    "id": "B04",
+    "name": "Payment Terms",
+    "category": "Financial",
+    "section": "B",
+    "promptText": "What are the payment terms including due dates and late fees?",
+    "expectedResultType": "text",
+    "searchSynonyms": ["payment terms", "net 30", "net 60", "invoice", "due date", "late fee", "interest rate"],
+    "priority": 13
+  },
+  {
+    "id": "B05",
+    "name": "Insurance Requirements",
+    "category": "Insurance",
+    "section": "B",
+    "promptText": "What insurance requirements are specified in this contract?",
+    "expectedResultType": "text",
+    "searchSynonyms": ["insurance", "general liability", "professional liability", "workers compensation", "certificate of insurance"],
+    "priority": 14
+  },
+  {
+    "id": "M01",
+    "name": "Full Contract Summary",
+    "category": "Summary",
+    "section": "Master",
+    "promptText": "Provide a comprehensive summary of key terms: parties, effective date, expiration, renewal, termination, governing law, liability, indemnification, and payment terms.",
+    "expectedResultType": "text",
+    "searchSynonyms": ["agreement", "contract", "parties", "terms and conditions", "obligations"],
+    "priority": 100
+  }
+]

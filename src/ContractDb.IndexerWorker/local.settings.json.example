@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "KeyVaultUri": "https://YOUR-KEYVAULT.vault.azure.net/",
+    "IndexerName": "contracts-indexer",
+    "SearchIndexName": "contracts-index"
+  }
+}

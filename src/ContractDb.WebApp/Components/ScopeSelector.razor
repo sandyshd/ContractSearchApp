@@ -1,0 +1,18 @@
+@* Scope selector: all contracts vs specific file *@
+
+<div class="form-group">
+    <label>Scope:</label>
+    <select @bind="SelectedScope">
+        <option value="all">All Contracts</option>
+        @foreach (var name in FileNames)
+        {
+            <option value="@name">@name</option>
+        }
+    </select>
+</div>
+
+@code {
+    [Parameter] public string SelectedScope { get; set; } = "all";
+    [Parameter] public EventCallback<string> SelectedScopeChanged { get; set; }
+    [Parameter] public List<string> FileNames { get; set; } = new();
+}

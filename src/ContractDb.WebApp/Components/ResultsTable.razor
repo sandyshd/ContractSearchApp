@@ -1,0 +1,41 @@
+@using ContractDb.Shared.Models
+
+@* Results table showing prompt results per contract *@
+
+@if (Results is not null && Results.Count > 0)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Contract</th>
+                <th>Conclusion</th>
+                <th>Extracted Value</th>
+                <th>Excerpts</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Results)
+            {
+                <tr>
+                    <td>@r.ContractName</td>
+                    <td>
+                        <span class="conclusion-badge @ConclusionClass(r.Conclusion)">@r.Conclusion</span>
+                    </td>
+                    <td>@(r.ExtractedValue ?? "—")</td>
+                    <td>@r.ClauseExcerpts.Count excerpt(s)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter] public List<PromptResult>? Results { get; set; }
+
+    private static string ConclusionClass(string conclusion) => conclusion switch
+    {
+        "Ambiguous" => "badge-warning",
+        "Not Found" or "Failed" => "badge-danger",
+        _ => "badge-success"
+    };
+}

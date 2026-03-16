@@ -1,0 +1,17 @@
+[
+  {
+    "groupId": "section-a",
+    "groupName": "Section A – Priority Contract Terms",
+    "promptIds": ["A01", "A02", "A03", "A04", "A05"]
+  },
+  {
+    "groupId": "section-b",
+    "groupName": "Section B – Extended Contract Terms",
+    "promptIds": ["B01", "B02", "B03", "B04", "B05"]
+  },
+  {
+    "groupId": "master",
+    "groupName": "Master – Full Summary",
+    "promptIds": ["M01"]
+  }
+]

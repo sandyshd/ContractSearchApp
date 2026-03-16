@@ -1,0 +1,112 @@
+@page "/upload"
+@using ContractDb.Shared.Models
+@using ContractDb.WebApp.Services
+@using ContractDb.WebApp.Components
+@using Microsoft.AspNetCore.Components.Forms
+@inject BlobStorageService BlobService
+@inject JobStoreService JobStore
+@inject QueueService Queue
+@rendermode InteractiveServer
+
+<h2>Upload Contracts</h2>
+
+<div class="upload-area">
+    <InputFile OnChange="HandleFileSelection" multiple accept=".pdf" />
+    <p>Select one or more PDF files to upload.</p>
+</div>
+
+@if (_uploading)
+{
+    <p><em>Uploading...</em></p>
+}
+
+@if (_uploadResults.Count > 0)
+{
+    <h3>Upload Results</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>File Name</th>
+                <th>Status</th>
+                <th>Job ID</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in _uploadResults)
+            {
+                <tr>
+                    <td>@r.FileName</td>
+                    <td>
+                        <ContractDb.WebApp.Components.StatusBadge Status="@r.Status" />
+                    </td>
+                    <td style="font-size:0.85em">@r.JobId</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="error">@_error</div>
+}
+
+@code {
+    private bool _uploading;
+    private string? _error;
+    private readonly List<IndexingJob> _uploadResults = new();
+    private const long MaxFileSize = 100 * 1024 * 1024; // 100 MB
+
+    private async Task HandleFileSelection(InputFileChangeEventArgs e)
+    {
+        _uploading = true;
+        _error = null;
+        _uploadResults.Clear();
+
+        try
+        {
+            foreach (var file in e.GetMultipleFiles(20))
+            {
+                if (!file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var safeFileName = Path.GetFileName(file.Name);
+
+                using var stream = file.OpenReadStream(MaxFileSize);
+                var blobPath = await BlobService.UploadAsync(safeFileName, stream);
+
+                var job = new IndexingJob
+                {
+                    JobId = Guid.NewGuid().ToString(),
+                    FileName = safeFileName,
+                    BlobPath = blobPath,
+                    Status = JobStatus.Uploaded,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await JobStore.CreateJobAsync(job);
+
+                await Queue.EnqueueAsync(new IndexingQueueMessage
+                {
+                    JobId = job.JobId,
+                    FileName = safeFileName,
+                    BlobPath = blobPath,
+                    UploadedAt = DateTime.UtcNow
+                });
+
+                _uploadResults.Add(job);
+            }
+
+            if (_uploadResults.Count == 0)
+                _error = "No valid PDF files selected.";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+}

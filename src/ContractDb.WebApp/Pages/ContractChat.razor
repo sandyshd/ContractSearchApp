@@ -1,0 +1,292 @@
+@page "/contract-chat"
+@using ContractDb.WebApp.Services
+@using Microsoft.AspNetCore.Components.Web
+@inject ContractChatService ChatService
+@rendermode InteractiveServer
+
+<div class="chat-page">
+    <div class="chat-container">
+        <!-- Messages Area -->
+        <div class="chat-messages" @ref="_messagesDiv">
+            @if (_messages.Count == 0)
+            {
+                <div class="chat-hero">
+                    <div class="chat-hero-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                    </div>
+                    <h2>Contract Intelligence</h2>
+                    <p>Search across <strong>all</strong> your contracts using natural language. Get precise, consolidated answers powered by AI.</p>
+
+                    <div class="chat-suggestions">
+                        <button class="suggestion-chip" @onclick='() => SetAndSend("List all contracts going to expire in the next 6 months. Show contract name and expiry date.")'>
+                            <span class="chip-icon">📅</span>
+                            <span class="chip-text">
+                                <strong>Expiring contracts</strong>
+                                List contracts expiring in 6 months
+                            </span>
+                        </button>
+                        <button class="suggestion-chip" @onclick='() => SetAndSend("List all contract names, their start date and end date.")'>
+                            <span class="chip-icon">📋</span>
+                            <span class="chip-text">
+                                <strong>Contract dates</strong>
+                                Show start and end dates
+                            </span>
+                        </button>
+                        <button class="suggestion-chip" @onclick='() => SetAndSend("Which contracts have auto-renewal clauses?")'>
+                            <span class="chip-icon">🔄</span>
+                            <span class="chip-text">
+                                <strong>Auto-renewal</strong>
+                                Find auto-renewal clauses
+                            </span>
+                        </button>
+                        <button class="suggestion-chip" @onclick='() => SetAndSend("Summarize key terms for each contract including parties, value, and duration.")'>
+                            <span class="chip-icon">📊</span>
+                            <span class="chip-text">
+                                <strong>Key terms summary</strong>
+                                Parties, value, duration
+                            </span>
+                        </button>
+                        <button class="suggestion-chip" @onclick='() => SetAndSend("Which contracts mention termination for convenience? List the contract name and relevant clause.")'>
+                            <span class="chip-icon">⚖️</span>
+                            <span class="chip-text">
+                                <strong>Termination clauses</strong>
+                                Termination for convenience
+                            </span>
+                        </button>
+                        <button class="suggestion-chip" @onclick='() => SetAndSend("What is the total value of all active contracts?")'>
+                            <span class="chip-icon">💰</span>
+                            <span class="chip-text">
+                                <strong>Total contract value</strong>
+                                Sum of all active contracts
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            @foreach (var msg in _messages)
+            {
+                <div class="chat-msg @(msg.IsUser ? "chat-user" : "chat-assistant")">
+                    @if (!msg.IsUser)
+                    {
+                        <div class="avatar avatar-ai">AI</div>
+                    }
+                    <div class="chat-bubble">
+                        @if (msg.IsUser)
+                        {
+                            <span>@msg.Content</span>
+                        }
+                        else
+                        {
+                            @((MarkupString)FormatResponse(msg.Content))
+                        }
+                    </div>
+                    @if (msg.IsUser)
+                    {
+                        <div class="avatar avatar-user">You</div>
+                    }
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <div class="chat-msg chat-assistant">
+                    <div class="avatar avatar-ai">AI</div>
+                    <div class="chat-bubble chat-status">
+                        <div class="status-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        @_statusMessage
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Input Area -->
+        <div class="chat-input-area">
+            <div class="chat-input-wrapper">
+                <textarea @bind="_userInput"
+                          @bind:event="oninput"
+                          @onkeydown="HandleKeyDown"
+                          rows="1"
+                          placeholder="Ask anything about your contracts..."
+                          disabled="@_processing"></textarea>
+                <button class="btn-send" @onclick="SendAsync" disabled="@(_processing || string.IsNullOrWhiteSpace(_userInput))">
+                    @if (_processing)
+                    {
+                        <span class="spinner-btn"></span>
+                    }
+                    else
+                    {
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    }
+                </button>
+            </div>
+            <p class="input-hint">Press <kbd>Enter</kbd> to send &middot; <kbd>Shift+Enter</kbd> for new line &middot; AI searches all @_documentCount contracts</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ChatMessageEntry> _messages = new();
+    private string _userInput = "";
+    private string? _statusMessage;
+    private bool _processing;
+    private ElementReference _messagesDiv;
+    private long _documentCount;
+
+    [Inject] private SearchContractsTool SearchTool { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _documentCount = await SearchTool.GetDocumentCountAsync(); }
+        catch { _documentCount = 0; }
+    }
+
+    private async Task SetAndSend(string prompt)
+    {
+        _userInput = prompt;
+        await SendAsync();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !_processing && !string.IsNullOrWhiteSpace(_userInput))
+        {
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput) || _processing) return;
+
+        var question = _userInput.Trim();
+        _userInput = "";
+        _processing = true;
+        _statusMessage = "Starting...";
+
+        // Add user message
+        _messages.Add(new ChatMessageEntry { Content = question, IsUser = true });
+        StateHasChanged();
+
+        try
+        {
+            string finalResponse = "";
+            await foreach (var update in ChatService.ProcessAsync(question, _messages))
+            {
+                if (update.IsFinal)
+                {
+                    finalResponse = update.Message;
+                    _statusMessage = null;
+                }
+                else
+                {
+                    _statusMessage = update.Message;
+                }
+                StateHasChanged();
+            }
+
+            _messages.Add(new ChatMessageEntry { Content = finalResponse, IsUser = false });
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessageEntry { Content = $"Error: {ex.Message}", IsUser = false });
+        }
+        finally
+        {
+            _statusMessage = null;
+            _processing = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatResponse(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+
+        // Convert markdown-style formatting to HTML
+        var html = System.Web.HttpUtility.HtmlEncode(text);
+
+        // Convert **bold** to <strong>
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+
+        // Convert numbered lists (1. item)
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"(?m)^(\d+)\.\s+", "<span class=\"list-num\">$1.</span> ");
+
+        // Convert bullet lists (- item)
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"(?m)^[-•]\s+", "<span class=\"list-bullet\">•</span> ");
+
+        // Convert markdown tables to HTML tables
+        var lines = html.Split('\n');
+        var sb = new System.Text.StringBuilder();
+        bool inTable = false;
+        bool headerDone = false;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+
+            if (line.StartsWith('|') && line.EndsWith('|'))
+            {
+                // Check if next line is separator (|---|---|)
+                bool isSeparator = line.Replace("|", "").Replace("-", "").Replace(":", "").Trim().Length == 0;
+
+                if (isSeparator)
+                {
+                    headerDone = true;
+                    continue; // skip separator row
+                }
+
+                if (!inTable)
+                {
+                    sb.Append("<table class=\"chat-table\">");
+                    inTable = true;
+                    headerDone = false;
+                }
+
+                var cells = line.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                var tag = !headerDone ? "th" : "td";
+                sb.Append("<tr>");
+                foreach (var cell in cells)
+                {
+                    sb.Append($"<{tag}>{cell.Trim()}</{tag}>");
+                }
+                sb.Append("</tr>");
+
+                // Check if next line is separator
+                if (!headerDone && i + 1 < lines.Length)
+                {
+                    var nextLine = lines[i + 1].Trim();
+                    if (nextLine.StartsWith('|') && nextLine.Replace("|", "").Replace("-", "").Replace(":", "").Trim().Length == 0)
+                    {
+                        headerDone = true;
+                    }
+                }
+            }
+            else
+            {
+                if (inTable)
+                {
+                    sb.Append("</table>");
+                    inTable = false;
+                    headerDone = false;
+                }
+                sb.Append(line);
+                sb.Append("<br/>");
+            }
+        }
+
+        if (inTable) sb.Append("</table>");
+
+        return sb.ToString();
+    }
+}

@@ -1,0 +1,17 @@
+@* Status badge component for job status display *@
+
+<span class="status-badge @BadgeClass">@Status</span>
+
+@code {
+    [Parameter] public string Status { get; set; } = "";
+
+    private string BadgeClass => Status switch
+    {
+        "Queued" => "badge-secondary",
+        "Uploaded" => "badge-info",
+        "Indexing" => "badge-warning",
+        "Indexed" => "badge-success",
+        "Failed" => "badge-danger",
+        _ => "badge-secondary"
+    };
+}

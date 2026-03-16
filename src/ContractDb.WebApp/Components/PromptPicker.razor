@@ -1,0 +1,30 @@
+@using ContractDb.Shared.Models
+
+@* Prompt template picker with grouped options *@
+
+<div class="form-group">
+    <label>@Label</label>
+    <select @bind="SelectedId">
+        <option value="">-- Custom Prompt --</option>
+        @if (Groups is not null && Templates is not null)
+        {
+            @foreach (var group in Groups)
+            {
+                <optgroup label="@group.GroupName">
+                    @foreach (var tpl in Templates.Where(t => group.PromptIds.Contains(t.Id)))
+                    {
+                        <option value="@tpl.Id">@tpl.Name</option>
+                    }
+                </optgroup>
+            }
+        }
+    </select>
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Select Prompt:";
+    [Parameter] public string SelectedId { get; set; } = "";
+    [Parameter] public EventCallback<string> SelectedIdChanged { get; set; }
+    [Parameter] public List<PromptTemplate>? Templates { get; set; }
+    [Parameter] public List<PromptGroup>? Groups { get; set; }
+}

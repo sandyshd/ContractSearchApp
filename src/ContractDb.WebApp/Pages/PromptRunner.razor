@@ -1,0 +1,239 @@
+@page "/prompt-runner"
+@using ContractDb.Shared.Models
+@using ContractDb.Shared.Services
+@using ContractDb.WebApp.Services
+@inject PromptLibraryLoader PromptLoader
+@inject SearchContractsTool SearchTool
+@inject PromptExecutionService ExecService
+@rendermode InteractiveServer
+
+<h2>Prompt Runner</h2>
+
+<div class="prompt-controls">
+    <!-- Prompt Picker -->
+    <div class="form-group">
+        <label>Select Prompt Template:</label>
+        <select @bind="_selectedPromptId">
+            <option value="">-- Custom Prompt --</option>
+            @if (_templates is not null)
+            {
+                @foreach (var group in _groups ?? Enumerable.Empty<PromptGroup>())
+                {
+                    <optgroup label="@group.GroupName">
+                        @foreach (var tpl in _templates.Where(t => group.PromptIds.Contains(t.Id)))
+                        {
+                            <option value="@tpl.Id">@tpl.Name</option>
+                        }
+                    </optgroup>
+                }
+            }
+        </select>
+    </div>
+
+    <!-- Custom Prompt -->
+    @if (string.IsNullOrEmpty(_selectedPromptId))
+    {
+        <div class="form-group">
+            <label>Custom Prompt:</label>
+            <textarea @bind="_customPromptText" rows="3" placeholder="Type your contract question..."></textarea>
+        </div>
+    }
+    else if (_templates is not null)
+    {
+        var selected = _templates.FirstOrDefault(t => t.Id == _selectedPromptId);
+        if (selected is not null)
+        {
+            <div class="form-group">
+                <label>Prompt Text:</label>
+                <p class="prompt-preview">@selected.PromptText</p>
+            </div>
+        }
+    }
+
+    <!-- Scope Selector -->
+    <div class="form-group">
+        <label>Scope:</label>
+        <select @bind="_scope">
+            <option value="all">All Contracts</option>
+            @foreach (var name in _fileNames)
+            {
+                <option value="@name">@name</option>
+            }
+        </select>
+    </div>
+
+    <button class="btn-primary" @onclick="RunPromptAsync" disabled="@_running">
+        @(_running ? "Running..." : "Run Prompt")
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="error">@_error</div>
+}
+
+@if (_response is not null)
+{
+    <h3>Results — @_response.MatchedContracts of @_response.TotalContracts contract(s) matched</h3>
+    <p><em>Executed: @_response.ExecutedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</em></p>
+
+    <!-- Summary Table -->
+    <table class="summary-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Contract Name</th>
+                <th>Status</th>
+                <th>Key Finding</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{ int rowNum = 0; }
+            @foreach (var result in _response.Results)
+            {
+                rowNum++;
+                <tr class="@(result.Conclusion == "Not Found" ? "row-not-found" : "")">
+                    <td>@rowNum</td>
+                    <td>@result.ContractName</td>
+                    <td>
+                        <span class="conclusion-badge @ConclusionClass(result.Conclusion)">@result.Conclusion</span>
+                    </td>
+                    <td>@(result.ExtractedValue ?? SummarizeExcerpts(result))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Expandable Details -->
+    <details class="details-section">
+        <summary style="cursor:pointer;margin-top:1rem;font-weight:600;">Show Detailed Excerpts & Citations</summary>
+
+        @foreach (var result in _response.Results)
+        {
+            <div class="result-card">
+                <h4>@result.ContractName (@result.SourceFileName)</h4>
+                <p><strong>Conclusion:</strong>
+                    <span class="conclusion-badge @ConclusionClass(result.Conclusion)">@result.Conclusion</span>
+                </p>
+
+                @if (result.ExtractedValue is not null)
+                {
+                    <p><strong>Extracted Value:</strong> @result.ExtractedValue</p>
+                }
+
+                @if (result.ClauseExcerpts.Count > 0)
+                {
+                    <h5>Clause Excerpts</h5>
+                    @foreach (var excerpt in result.ClauseExcerpts)
+                    {
+                        <blockquote>"@excerpt.Text"</blockquote>
+                    }
+                }
+
+                @if (result.Citations.Count > 0)
+                {
+                    <h5>Citations</h5>
+                    <ul>
+                        @foreach (var cite in result.Citations)
+                        {
+                            <li>
+                                <strong>@cite.SourceFileName</strong> — "@TruncateText(cite.Excerpt, 150)"
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+    </details>
+
+    <div class="export-buttons" style="margin-top:1rem">
+        <button @onclick="ExportJson">Export JSON</button>
+    </div>
+}
+
+@code {
+    private List<PromptTemplate>? _templates;
+    private List<PromptGroup>? _groups;
+    private List<string> _fileNames = new();
+    private string _selectedPromptId = "";
+    private string _customPromptText = "";
+    private string _scope = "all";
+    private bool _running;
+    private string? _error;
+    private PromptRunResponse? _response;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _templates = await PromptLoader.LoadTemplatesAsync();
+        _groups = await PromptLoader.LoadGroupsAsync();
+        _fileNames = await SearchTool.GetIndexedFileNamesAsync();
+    }
+
+    private async Task RunPromptAsync()
+    {
+        _running = true;
+        _error = null;
+        _response = null;
+
+        try
+        {
+            var request = new PromptRunRequest
+            {
+                PromptId = string.IsNullOrEmpty(_selectedPromptId) ? null : _selectedPromptId,
+                CustomPromptText = string.IsNullOrEmpty(_selectedPromptId) ? _customPromptText : null,
+                Scope = _scope,
+                ScopeFileName = _scope == "all" ? null : _scope
+            };
+
+            if (string.IsNullOrEmpty(request.PromptId) && string.IsNullOrWhiteSpace(request.CustomPromptText))
+            {
+                _error = "Please select a prompt template or enter a custom prompt.";
+                return;
+            }
+
+            _response = await ExecService.ExecuteAsync(request);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private void ExportJson()
+    {
+        // In a real app, trigger a file download via JS interop
+        // For now, this is a placeholder
+    }
+
+    private static string ConclusionClass(string conclusion) => conclusion switch
+    {
+        "Ambiguous" => "badge-warning",
+        "Not Found" => "badge-danger",
+        "Failed" => "badge-danger",
+        _ => "badge-success"
+    };
+
+    private static string SummarizeExcerpts(PromptResult result)
+    {
+        if (result.ClauseExcerpts.Count == 0)
+            return "No matching clauses found.";
+
+        // Take the first excerpt and truncate it for the summary
+        var best = result.ClauseExcerpts[0].Text;
+        return TruncateText(best, 200);
+    }
+
+    private static string TruncateText(string text, int maxLen)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        if (text.Length <= maxLen) return text;
+        // Cut at last space before maxLen
+        var cut = text.LastIndexOf(' ', maxLen);
+        if (cut < maxLen / 2) cut = maxLen;
+        return text[..cut] + "...";
+    }
+}

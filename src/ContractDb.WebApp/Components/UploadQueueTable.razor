@@ -1,0 +1,30 @@
+@using ContractDb.Shared.Models
+
+@* Table showing upload queue with per-file status *@
+
+@if (Jobs is not null && Jobs.Count > 0)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>File</th>
+                <th>Status</th>
+                <th>Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var job in Jobs)
+            {
+                <tr>
+                    <td>@job.FileName</td>
+                    <td><StatusBadge Status="@job.Status" /></td>
+                    <td>@job.UpdatedAt.ToString("HH:mm:ss")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter] public List<IndexingJob>? Jobs { get; set; }
+}

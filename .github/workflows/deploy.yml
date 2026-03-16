@@ -1,0 +1,101 @@
+name: Deploy ContractDB
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_RESOURCE_GROUP: contractdb-rg
+  AZURE_LOCATION: eastus
+  BASE_NAME: contractdb
+  DOTNET_VERSION: '8.0.x'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore src/ContractDb.sln
+
+      - name: Build
+        run: dotnet build src/ContractDb.sln -c Release --no-restore
+
+      - name: Publish WebApp
+        run: dotnet publish src/ContractDb.WebApp/ContractDb.WebApp.csproj -c Release -o ./webapp-publish
+
+      - name: Publish Function
+        run: dotnet publish src/ContractDb.IndexerWorker/ContractDb.IndexerWorker.csproj -c Release -o ./func-publish
+
+      - name: Upload WebApp artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webapp
+          path: ./webapp-publish
+
+      - name: Upload Function artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: function
+          path: ./func-publish
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create Resource Group
+        run: az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }}
+
+      - name: Deploy Bicep
+        uses: azure/arm-deploy@v2
+        id: bicep
+        with:
+          scope: resourcegroup
+          resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
+          template: ./infra/main.bicep
+          parameters: baseName=${{ env.BASE_NAME }} location=${{ env.AZURE_LOCATION }}
+
+      - name: Download WebApp artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: webapp
+          path: ./webapp-publish
+
+      - name: Deploy Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.BASE_NAME }}-web
+          package: ./webapp-publish
+
+      - name: Download Function artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: function
+          path: ./func-publish
+
+      - name: Deploy Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.BASE_NAME }}-func
+          package: ./func-publish

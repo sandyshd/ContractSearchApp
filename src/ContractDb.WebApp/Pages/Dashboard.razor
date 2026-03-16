@@ -1,0 +1,108 @@
+@page "/"
+@using ContractDb.Shared.Models
+@using ContractDb.WebApp.Services
+@using ContractDb.WebApp.Components
+@inject JobStoreService JobStore
+@inject SearchContractsTool SearchTool
+@rendermode InteractiveServer
+
+<h2>Dashboard</h2>
+
+@if (_summary is not null)
+{
+    <div class="summary-cards">
+        <div class="card">
+            <h3>@_summary.IndexedDocumentCount</h3>
+            <p>Indexed Documents</p>
+        </div>
+        <div class="card">
+            <h3>@_summary.Indexing</h3>
+            <p>In Progress</p>
+        </div>
+        <div class="card">
+            <h3>@_summary.Failed</h3>
+            <p>Failed</p>
+        </div>
+        <div class="card">
+            <h3>@_summary.TotalJobs</h3>
+            <p>Total Jobs</p>
+        </div>
+    </div>
+}
+else
+{
+    <p>Loading...</p>
+}
+
+<h3>Recent Jobs</h3>
+
+@if (_jobs is not null && _jobs.Count > 0)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>File Name</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var job in _jobs.Take(25))
+            {
+                <tr>
+                    <td>@job.FileName</td>
+                    <td>
+                        <ContractDb.WebApp.Components.StatusBadge Status="@job.Status" />
+                    </td>
+                    <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@job.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@(job.ErrorMessage ?? "")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else if (_jobs is not null)
+{
+    <p>No jobs found. Upload contracts to get started.</p>
+}
+
+@code {
+    private JobsSummary? _summary;
+    private List<IndexingJob>? _jobs;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshDataAsync();
+        _timer = new Timer(async _ =>
+        {
+            await RefreshDataAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
+    }
+
+    private async Task RefreshDataAsync()
+    {
+        try
+        {
+            _jobs = await JobStore.GetAllJobsAsync();
+            var indexedCount = await SearchTool.GetDocumentCountAsync();
+            _summary = new JobsSummary
+            {
+                TotalJobs = _jobs.Count,
+                Queued = _jobs.Count(j => j.Status == JobStatus.Queued),
+                Uploaded = _jobs.Count(j => j.Status == JobStatus.Uploaded),
+                Indexing = _jobs.Count(j => j.Status == JobStatus.Indexing),
+                Indexed = _jobs.Count(j => j.Status == JobStatus.Indexed),
+                Failed = _jobs.Count(j => j.Status == JobStatus.Failed),
+                IndexedDocumentCount = indexedCount
+            };
+        }
+        catch { /* polling failure; will retry */ }
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

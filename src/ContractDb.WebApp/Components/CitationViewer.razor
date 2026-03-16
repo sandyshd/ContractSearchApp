@@ -1,0 +1,22 @@
+@using ContractDb.Shared.Models
+
+@* Displays citations for a prompt result *@
+
+@if (Citations is not null && Citations.Count > 0)
+{
+    <div class="citation-viewer">
+        <h5>Citations</h5>
+        @foreach (var cite in Citations)
+        {
+            <div class="citation">
+                <strong>@cite.SourceFileName</strong>
+                <blockquote>"@cite.Excerpt"</blockquote>
+                <small>Query: @cite.QueryUsed</small>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<Citation>? Citations { get; set; }
+}
