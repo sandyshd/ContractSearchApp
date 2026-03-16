@@ -99,15 +99,15 @@ flowchart TD
     E --> F["Azure Function<br/>IndexingQueueTrigger<br/>dequeues message"]
     F --> G["Update job status → <b>Indexing</b>"]
     G --> H["SearchIndexerClient<br/>POST /indexers/.../search.run"]
-    H --> I{Indexer already<br/>running? (409)}
+    H --> I{"Indexer already<br/>running? (409)"}
     I -->|Yes| J["RetryPolicy<br/>Exponential backoff<br/>(2^n seconds, max 5)"]
     J --> H
     I -->|No / 202| K["Poll indexer status<br/>GET /indexers/.../search.status<br/>(every 5s, max 60 polls)"]
-    K --> L{lastResult.endTime<br/>>= uploadedAt?}
+    K --> L{"lastResult.endTime<br/> >= uploadedAt?"}
     L -->|Not yet| K
     L -->|Yes - success| M["SearchVerificationClient<br/>Query: sourceFileName eq 'file.pdf'"]
     L -->|Yes - failed| P["Update job → <b>Failed</b><br/>(with error message)"]
-    M --> N{Document found<br/>in index?}
+    M --> N{"Document found<br/>in index?"}
     N -->|Yes| O["Update job → <b>Indexed</b> ✓"]
     N -->|No| P
     O --> Q["Dashboard auto-refreshes<br/>(polls every 4 seconds)"]
@@ -125,7 +125,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["User opens Prompt Runner page"] --> B{Select prompt<br/>type}
+    A["User opens Prompt Runner page"] --> B{"Select prompt<br/>type"}
     B -->|Template| C["Load from prompts.json<br/>Get searchSynonyms"]
     B -->|Custom| D["Extract key terms<br/>(stop-word removal)"]
     C --> E["Build Query Plan"]
@@ -134,16 +134,16 @@ flowchart TD
     E --> F["Main query: all terms combined (top 10)<br/>+ Up to 5 synonym queries (top 5 each)"]
     F --> G["SearchContractsTool.SearchAsync()<br/>for each query"]
     G --> H["Aggregate hits by sourceFileName<br/>Extract highlights → ClauseExcerpts<br/>Build Citations"]
-    H --> I{Template or inferred<br/>expectedResultType?}
+    H --> I{"Template or inferred<br/>expectedResultType?"}
     I -->|date| J["DateUtils.ExtractDates()<br/>from excerpt text"]
     I -->|boolean| K["Keyword detection<br/>(shall/will/must vs.<br/>shall not/does not)"]
     I -->|text/currency| L["Conclusion = Found<br/>if excerpts > 0"]
     J --> J0["ExtractMostRelevantDate()<br/>Find date nearest to<br/>expiry/start/renewal keywords"]
-    J0 --> J1{How many<br/>dates found?}
+    J0 --> J1{"How many<br/>dates found?"}
     J1 -->|1| J2["Conclusion = <b>Explicit Date</b><br/>ExtractedValue = date"]
     J1 -->|>1| J3["Conclusion = <b>Ambiguous</b>"]
     J1 -->|0| J4["Conclusion = Implied<br/>or Not Found"]
-    K --> K1{Positive +<br/>Negative signals?}
+    K --> K1{"Positive +<br/>Negative signals?"}
     K1 -->|Both| K2["Conclusion = <b>Ambiguous</b>"]
     K1 -->|Positive only| K3["Conclusion = <b>Yes</b>"]
     K1 -->|Negative only| K4["Conclusion = <b>No</b>"]
@@ -187,13 +187,13 @@ flowchart TD
     C --> D["Fetch ALL documents<br/>from search index<br/>(SearchClient: query=*)"]
     D --> E["Split into batches<br/>(3 contracts per batch)"]
     E --> F["For each batch:<br/>Send contracts + user question<br/>to GPT-4o (temperature=0)"]
-    F --> G{Token quota<br/>exceeded? (429)}
+    F --> G{"Token quota<br/>exceeded? (429)"}
     G -->|Yes| H["Wait 10s → Retry batch"]
     H --> F
     G -->|No| I["Collect batch result"]
-    I --> J{More batches?}
+    I --> J{"More batches?"}
     J -->|Yes| F
-    J -->|No| K{Multiple<br/>batch results?}
+    J -->|No| K{"Multiple<br/>batch results?"}
     K -->|1 batch| L["Return as final answer"]
     K -->|>1 batches| M["Consolidation LLM call:<br/>Merge all batch results<br/>into single clean response"]
     M --> L
